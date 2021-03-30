@@ -138,6 +138,33 @@ class TestCommunication(unittest.TestCase):
 		self.assertIn(contact_recipient.name, contact_links)
 		self.assertIn(contact_cc.name, contact_links)
 
+	def test_autosuggest_addresses(self):
+		for title in ["Northwind Traders", "Krusty Krab", "Megacorp"]:
+			frappe.delete_doc_if_exists("Address", "{}-Billing".format(title))
+			frappe.get_doc({
+				"doctype": "Address",
+				"address_title": title,
+				"address_type": "Billing",
+				"address_line1": "Example Street 15",
+				"city": "Example Town",
+				"email_id": "test@example.com"
+			}).insert(ignore_permissions=True)
+
+		# Test if address is found by name
+		res = list(frappe.email.get_contact_list("Krusty Krab"))
+		self.assertTrue(frappe._dict(res[0]).description == "Krusty Krab-Billing")
+		
+		# Test if address is found by name with wrong capitalization
+		res = list(frappe.email.get_contact_list("KRUSTY KRAB"))
+		self.assertTrue(frappe._dict(res[0]).description == "Krusty Krab-Billing")
+
+		# Test if address is found by email id
+		res = list(frappe.email.get_contact_list("test@example.com"))
+		self.assertTrue(frappe._dict(res[0]).value == "test@example.com")
+
+		# Test if deduplication works
+		self.assertTrue(len(res) == 1)
+
 	def test_get_communication_data(self):
 		from frappe.desk.form.load import get_communication_data
 
